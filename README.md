@@ -1,5 +1,7 @@
 # x79d8
 
+![build](https://github.com/quark-zju/x79d8/workflows/build/badge.svg)
+
 Portable directory encryption.
 
 Encrypted files are stored on the host OS filesystem. Decrypted files are
