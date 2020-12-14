@@ -138,12 +138,12 @@ impl IntKv for BufferedIntKv {
 
 #[test]
 fn test_buffered() {
-    let kv = super::super::backend::MemIntKv::new();
-    let mut kv = BufferedIntKv::new(Box::new(kv));
-    kv.flush().unwrap();
-    super::super::test_int_kv(&mut kv, 100);
-    kv.flush().unwrap();
-    super::super::test_int_kv(&mut kv, 200);
-    kv.flush().unwrap();
-    super::super::test_int_kv(&mut kv, 100);
+    super::super::test_int_kv(
+        |kv| {
+            kv.unwrap_or_else(|| {
+                BufferedIntKv::new(Box::new(super::super::backend::MemIntKv::new()))
+            })
+        },
+        100,
+    );
 }

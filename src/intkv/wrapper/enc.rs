@@ -140,9 +140,15 @@ impl Count {
 
 #[test]
 fn test_enc_kv() {
-    let kv = super::super::backend::MemIntKv::new();
-    let key = [0; 32];
-    let rng: rand_chacha::ChaChaRng = rand::SeedableRng::from_seed(Default::default());
-    let mut kv = EncInKv::new(key, Box::new(rng), Box::new(kv));
-    super::super::test_int_kv(&mut kv, 50);
+    super::super::test_int_kv(
+        |opt_kv| {
+            opt_kv.unwrap_or_else(|| {
+                let kv = super::super::backend::MemIntKv::new();
+                let key = [0; 32];
+                let rng: rand_chacha::ChaChaRng = rand::SeedableRng::from_seed(Default::default());
+                EncIntKv::from_key_rng_kv(key, Box::new(rng), Box::new(kv))
+            })
+        },
+        50,
+    );
 }

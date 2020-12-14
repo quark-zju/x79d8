@@ -55,6 +55,5 @@ impl IntKv for FsIntKv {
 fn test_fsint_kv() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path();
-    let mut kv = FsIntKv::new(&path).unwrap();
-    super::super::test_int_kv(&mut kv, 10);
+    super::super::test_int_kv(|_| FsIntKv::new(&path).unwrap(), 10);
 }

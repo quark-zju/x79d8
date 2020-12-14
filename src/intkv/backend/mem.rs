@@ -34,6 +34,5 @@ impl IntKv for MemIntKv {
 
 #[test]
 fn test_mem_int_kv() {
-    let mut kv = MemIntKv::new();
-    super::super::test_int_kv(&mut kv, 200);
+    super::super::test_int_kv(|kv| kv.unwrap_or_else(MemIntKv::new), 200);
 }
