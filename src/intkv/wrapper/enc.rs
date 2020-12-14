@@ -6,11 +6,14 @@ use cfb_mode::Cfb;
 use rand::RngCore;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::fmt;
 use std::io;
 
 type Bits256 = [u8; 32];
 type Bits128 = [u8; 16];
 type AesCfb = Cfb<Aes256>;
+
+pub const IV_HEADER_SIZE: usize = 16;
 
 /// Wrap an `IntKv` with encryption.
 ///
@@ -18,25 +21,46 @@ type AesCfb = Cfb<Aes256>;
 /// the master key, the integer index, and a 63-bit `Count` stored in the first
 /// 8 bytes of the block. The `Count` is preserved upon deletion to avoid
 /// reusing IVs.
-pub struct EncInKv {
+pub struct EncIntKv {
     /// The master key.
     key: Bits256,
 
     /// Random number generator.
-    rng: Box<dyn RngCore>,
+    rng: Box<dyn RngCore + Send + Sync>,
 
     /// The inner `IntKv` backend.
     kv: Box<dyn IntKv>,
 }
 
-impl EncInKv {
-    pub fn new(key: Bits256, rng: Box<dyn RngCore>, kv: Box<dyn IntKv>) -> Self {
+impl fmt::Debug for EncIntKv {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EncIntKv")
+            .field("key", &self.key)
+            .field("kv", &self.kv)
+            .finish()
+    }
+}
+
+impl EncIntKv {
+    pub const fn iv_header_size() -> usize {
+        IV_HEADER_SIZE
+    }
+
+    pub fn from_key_rng_kv(
+        key: Bits256,
+        rng: Box<dyn RngCore + Send + Sync>,
+        kv: Box<dyn IntKv>,
+    ) -> Self {
         Self { key, rng, kv }
     }
 
-    /// Get iv from blake2s(key, index, count).
+    pub fn from_key_kv(key: Bits256, kv: Box<dyn IntKv>) -> Self {
+        let rng: rand_chacha::ChaChaRng = rand::SeedableRng::from_seed(Default::default());
+        Self::from_key_rng_kv(key, Box::new(rng), kv)
+    }
+
+    /// Get iv from blake2s(key, count, index).
     fn iv(&self, index: usize, count: Count) -> Bits128 {
-        debug_assert!(!count.is_deleted());
         let mut b = Blake2s::new();
         b.update(&self.key);
         b.update(&count.to_bytes());
@@ -50,49 +74,43 @@ impl EncInKv {
     }
 }
 
-impl IntKv for EncInKv {
+impl IntKv for EncIntKv {
     fn read(&self, index: usize) -> io::Result<Bytes> {
         let data = self.kv.read(index)?;
         let count = Count::read_from(&data)?;
-        if count.is_deleted() {
-            return Err(io::ErrorKind::NotFound.into());
-        }
         let mut cipher = self.cipher(index, count);
-        let mut data = data[8..].to_vec();
+        let mut data = data[IV_HEADER_SIZE..].to_vec();
+        log::info!("Decrypt {} ({} bytes)", index, data.len());
         cipher.decrypt(&mut data);
+        log::debug!("Decrypt {} complete", index);
         Ok(data.into())
     }
 
     fn write(&mut self, index: usize, data: Bytes) -> io::Result<()> {
         let count = if self.kv.has(index)? {
             let old_data = self.kv.read(index)?;
-            Count::read_from(&old_data)?.bump().with_deleted(false)
+            Count::read_from(&old_data)?.bump(&mut self.rng)
         } else {
-            Count::new_random(self.rng.as_mut()).with_deleted(false)
+            Count::new_random(self.rng.as_mut())
         };
-        let mut new_data = Vec::with_capacity(data.len() + 8);
+        let mut new_data = Vec::with_capacity(data.len() + IV_HEADER_SIZE);
         new_data.extend_from_slice(&count.to_bytes());
         new_data.extend_from_slice(&data);
         let mut cipher = self.cipher(index, count);
-        cipher.encrypt(&mut new_data[8..]);
+        log::info!("Encrypt {} ({} bytes)", index, data.len());
+        cipher.encrypt(&mut new_data[IV_HEADER_SIZE..]);
+        log::debug!("Encrypt {} complete", index);
         self.kv.write(index, new_data.into())
     }
 
     fn remove(&mut self, index: usize) -> io::Result<()> {
-        let old_data = self.kv.read(index)?;
-        let count = Count::read_from(&old_data)?.bump().with_deleted(true);
-        let new_data = count.to_bytes().to_vec();
-        self.kv.write(index, new_data.into())
+        // This frees space and forgets about the IV header.
+        // It relies on self.rng to avoid IV reuse.
+        self.kv.remove(index)
     }
 
     fn has(&self, index: usize) -> io::Result<bool> {
-        if !self.kv.has(index)? {
-            Ok(false)
-        } else {
-            let old_data = self.kv.read(index)?;
-            let count = Count::read_from(&old_data)?;
-            Ok(!count.is_deleted())
-        }
+        self.kv.has(index)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -103,38 +121,34 @@ impl IntKv for EncInKv {
 /// The "count" as the header of blocks to help avoid IV reuse.
 /// The highest bit is used to indicate "deletion".
 #[derive(Debug, Copy, Clone)]
-struct Count(u64);
+struct Count(u64, u64);
 
 impl Count {
     fn new_random(rng: &mut dyn RngCore) -> Self {
-        Self(rng.next_u64())
+        Self(rng.next_u64(), rng.next_u64())
     }
 
     fn read_from(data: &[u8]) -> io::Result<Self> {
-        match data.get(0..8) {
+        match data.get(0..16) {
             None => Err(io::ErrorKind::UnexpectedEof.into()),
-            Some(v) => Ok(Self(u64::from_be_bytes(<[u8; 8]>::try_from(v).unwrap()))),
+            Some(v) => {
+                let v1 = u64::from_be_bytes(<[u8; 8]>::try_from(&v[0..8]).unwrap());
+                let v2 = u64::from_be_bytes(<[u8; 8]>::try_from(&v[8..16]).unwrap());
+                Ok(Self(v1, v2))
+            }
         }
     }
 
-    fn is_deleted(&self) -> bool {
-        (self.0 & 0x8000000000000000) != 0
+    fn bump(self, rng: &mut dyn RngCore) -> Self {
+        let v = rng.next_u64() | 1;
+        Self(self.0.wrapping_add(v), self.1.wrapping_add(1))
     }
 
-    fn with_deleted(self, deleted: bool) -> Self {
-        if deleted {
-            Self(self.0 | 0x8000000000000000u64)
-        } else {
-            Self(self.0 & 0x7fffffffffffffffu64)
-        }
-    }
-
-    fn bump(self) -> Self {
-        Self(self.0.wrapping_add(1))
-    }
-
-    fn to_bytes(self) -> [u8; 8] {
-        self.0.to_be_bytes()
+    fn to_bytes(self) -> [u8; IV_HEADER_SIZE] {
+        let mut result = [0u8; 16];
+        result[0..8].copy_from_slice(&self.0.to_be_bytes());
+        result[8..16].copy_from_slice(&self.1.to_be_bytes());
+        result
     }
 }
 
