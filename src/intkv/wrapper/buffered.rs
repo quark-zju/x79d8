@@ -1,12 +1,17 @@
 use super::super::{Bytes, IntKv};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::io;
+use std::{io, sync::atomic::AtomicUsize, sync::atomic::Ordering};
 
 /// Buffered IntKv. Writes are buffered until `flush()`.
+#[derive(Debug)]
 pub struct BufferedIntKv {
     /// Cached.
     cache: RwLock<HashMap<usize, State>>,
+
+    /// Cache size limit.
+    cache_size_limit: usize,
+    cache_size: AtomicUsize,
 
     /// Changed in this layer.
     changes: HashMap<usize, Option<Bytes>>,
@@ -31,8 +36,15 @@ impl BufferedIntKv {
         Self {
             cache: Default::default(),
             changes: Default::default(),
+            cache_size_limit: 0,
+            cache_size: Default::default(),
             kv,
         }
+    }
+
+    pub fn with_cache_size_limit(mut self, limit: usize) -> Self {
+        self.cache_size_limit = limit;
+        self
     }
 
     fn get_changed(&self, index: usize) -> io::Result<Option<Bytes>> {
@@ -71,7 +83,19 @@ impl IntKv for BufferedIntKv {
                     }
                     Ok(b) => b,
                 };
-                self.cache.write().insert(index, State::Data(b.clone()));
+                let size = self.cache_size.fetch_add(b.len(), Ordering::AcqRel);
+                let mut cache = self.cache.write();
+                if self.cache_size_limit > 0 && size > self.cache_size_limit {
+                    // Remove cache to keep size bounded.
+                    log::debug!(
+                        "Dropping cache (size {} > limit {})",
+                        size,
+                        self.cache_size_limit
+                    );
+                    self.cache_size.fetch_sub(size, Ordering::AcqRel);
+                    cache.clear();
+                }
+                cache.insert(index, State::Data(b.clone()));
                 Ok(b)
             }
             State::Has(true) => {
