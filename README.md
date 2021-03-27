@@ -11,7 +11,7 @@ served via a local FTP service.
 
 - Portable. Use FTP. Most systems support FTP.
 - Dynamic sized. Space usage grows or shrinks based on usage.
-- Industry encryption. AES256 for data encryption. scrypt for key derivation.
+- Industry-standard encryption. AES256 for data encryption. scrypt for key derivation.
 
 ## Installation
 
@@ -58,21 +58,21 @@ which is the file name on the host OS filesystem. The header of a block has a
 random 128-bit integer `count`. The IV used for encrypting that block is
 `blake2s(key, count, block_id)`. The `count` will be changed whenever the
 block is written. If a block is deleted and re-added, its `count` will be
-re-initialized by the OS rng. The OS RNG must be secure to eliminate IV reuse
-in that case.
+re-initialized by the operating system random number generator. The OS RNG
+must be secure to eliminate IV reuse in that case.
 
 By default, a block is 1MB. Smaller files will be grouped into one block.
-Larger files are will span across multiple blocks. This behavior can be changed
+Larger files will span across multiple blocks. This behavior can be changed
 by the `--block-size-kb` option during `init`.
 
 x79d8 uses scrypt to calculate the key from password. Its strength can be
 changed by the `--scrypt-log-n` option during `init`.
 
-x79d8 assumes it's a local service and there are no untrusted traffic. For
+x79d8 assumes it's a local service and there is no untrusted traffic. For
 example, it does not use AEAD (authenticated encryption with associated data).
 Do not expose x79d8 features to untrusted network! Do not allow untrusted
 users to edit the encrypted files (in particular, they can replace a block
-to its previous version to trick an IV-reuse case, if the OS RNG is also
+to its previous version to trick an IV-reuse case if the OS RNG is also
 insecure)!
 
 ## Durability
