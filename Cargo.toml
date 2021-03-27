@@ -19,7 +19,7 @@ structopt = "0.3"
 env_logger = "0.8"
 fs2 = "0.4"
 hex = "0.4"
-libunftp = { version = "0.14" }
+libunftp = { version = "0.17" }
 log = "0.4"
 memmap = "0.7"
 minibytes = { package = "esl01-minibytes", version = "0.2" }
@@ -34,4 +34,4 @@ scrypt = "0.5"
 slog-stdlog = "4" 
 slog = "2"
 tempfile = "3"
-tokio = { version = "0.3", features = ["full"] }
+tokio = { version = "1.0", features = ["full"] }
