@@ -48,6 +48,7 @@ x79d8 serve
 
 Enter the password set above to start the FTP server.
 
+Setting `X79D8_LOG` to `debug` or `trace` enables debugging output.
 
 ## Encryption
 
@@ -131,6 +132,8 @@ x79d8 serve
 来启动本地 FTP 服务，在 FTP 中添加要被加密的文件。按 Ctrl+C 终止 FTP 服务。
 
 第一次启动 FTP 服务时设定密码，后续使用时需输入相同密码来解密。
+
+设置 `X79D8_LOG` 环境变量为 `debug` 或 `trace` 可启用调试信息。
 
 ## 背景
 
