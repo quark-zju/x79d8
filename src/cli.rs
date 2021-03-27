@@ -6,7 +6,7 @@ use crate::{
         IntKv,
     },
 };
-use scrypt::ScryptParams;
+use scrypt::Params as ScryptParams;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
