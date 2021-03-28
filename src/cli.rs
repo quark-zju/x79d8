@@ -38,7 +38,7 @@ pub(crate) enum Opt {
     /// Serves an encrypted directory.
     Serve {
         /// FTP service address.
-        #[structopt(short, long, default_value = "127.0.0.2:2121")]
+        #[structopt(short, long, default_value = "127.0.0.1:7968")]
         address: String,
 
         /// Path to the local directory.
@@ -145,7 +145,7 @@ async fn serve_cmd(dir: &Path, address: &str) -> io::Result<()> {
         .passive_ports(50000..65535)
         .logger(logger);
 
-    eprintln!("Serving {} at {}", dir.display(), address);
+    eprintln!("Serving {} at ftp://{}", dir.display(), address);
     server
         .listen(address)
         .await

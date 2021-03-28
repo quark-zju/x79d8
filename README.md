@@ -37,7 +37,7 @@ Then serve the directory. This will prompt for a new password:
 x79d8 serve
 ```
 
-Upload files to `ftp://127.0.0.2:2121`. Press Ctrl+C to store the encrypted
+Upload files to `ftp://127.0.0.1:7968`. Press Ctrl+C to store the encrypted
 files on disk. Press Ctrl+C to stop the FTP server.
 
 To serve the directory again, run:
