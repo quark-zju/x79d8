@@ -11,7 +11,7 @@ pub async fn main() {
     init();
     let opt = Opt::from_args();
     match opt.run().await {
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => eprintln!("Error: {} ({:?})", &e, &e),
         Ok(_) => {}
     }
 }
