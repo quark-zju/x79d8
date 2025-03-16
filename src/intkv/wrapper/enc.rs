@@ -62,9 +62,9 @@ impl EncIntKv {
     /// Get iv from blake2s(key, count, index).
     fn iv(&self, index: usize, count: Count) -> Bits128 {
         let mut b = Blake2s::new();
-        b.update(&self.key);
-        b.update(&count.to_bytes());
-        b.update(&(index as u64).to_be_bytes());
+        b.update(self.key);
+        b.update(count.to_bytes());
+        b.update((index as u64).to_be_bytes());
         b.finalize().as_slice()[0..16].try_into().unwrap()
     }
 

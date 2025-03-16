@@ -93,8 +93,8 @@ impl Opt {
                 no_encrypt,
                 scrypt_log_n,
                 dir,
-            } => init_cmd(&dir, *block_size_kb, !no_encrypt, *scrypt_log_n),
-            Opt::Serve { address, dir } => serve_cmd(&dir, address).await,
+            } => init_cmd(dir, *block_size_kb, !no_encrypt, *scrypt_log_n),
+            Opt::Serve { address, dir } => serve_cmd(dir, address).await,
         }
     }
 }
@@ -111,13 +111,13 @@ fn init_cmd(dir: &Path, block_size_kb: u16, encrypted: bool, scrypt_log_n: u8) -
     let config = {
         let salt_hex = if encrypted {
             let salt: [u8; 32] = rand::random();
-            hex::encode(&salt)
+            hex::encode(salt)
         } else {
             String::new()
         };
         Config {
             salt_hex,
-            scrypt_log_n: scrypt_log_n,
+            scrypt_log_n,
             scrypt_r: default_scrypt_r(),
             scrypt_p: default_scrypt_p(),
             block_size_kb,
@@ -188,14 +188,14 @@ fn kv_from_dir(dir: &Path) -> io::Result<Box<dyn IntKv>> {
 
 /// Construct the `IntKv` backend.
 fn kv_from_dir_config(dir: &Path, config: &Config) -> io::Result<Box<dyn IntKv>> {
-    let mut kv: Box<dyn IntKv> = { Box::new(FsIntKv::new(&dir)?) };
+    let mut kv: Box<dyn IntKv> = { Box::new(FsIntKv::new(dir)?) };
     let mut page_overhead = 0;
     if config.salt_hex.is_empty() {
         log::info!("Encryption is disabled");
     } else {
         let prompt = "Password: ";
         let pass = rpassword::read_password_from_tty(Some(prompt)).unwrap();
-        let key = password_derive(&pass, &config);
+        let key = password_derive(&pass, config);
         // Use password encryption.
         kv = Box::new(EncIntKv::from_key_kv(key, kv));
         // Bytes per page is used by encryption header (IV count).

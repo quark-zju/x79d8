@@ -154,8 +154,8 @@ impl PageIntKv {
                         let data = self.read_data_page(data_index as _)?;
                         let indexes = data
                             .chunks
-                            .iter()
-                            .map(|(_, c)| c.next_page_index)
+                            .values()
+                            .map(|c| c.next_page_index)
                             .filter(|&i| i != 0);
                         to_visit.extend(indexes);
                     }
@@ -336,27 +336,24 @@ impl PageIntKv {
         let needed_size = size + overhead;
         if needed_size > self.page_size {
             // Pick a page with maximum free space.
-            match self
+            if let Some((&page_index, &page_size)) = self
                 .data_page_sizes
                 .iter()
                 .min_by_key(|(_, page_size)| *page_size)
             {
-                Some((&page_index, &page_size)) => {
-                    if page_size + overhead < self.page_size {
-                        return Ok(self.read_data_page(page_index as _)?);
-                    }
+                if page_size + overhead < self.page_size {
+                    return self.read_data_page(page_index as _);
                 }
-                None => {}
             }
         }
         // PERF: This can probably be improved.
         for (&page_index, &page_size) in &self.data_page_sizes {
             if page_size + needed_size <= self.page_size {
-                return Ok(self.read_data_page(page_index as _)?);
+                return self.read_data_page(page_index as _);
             }
         }
         // Allocate a new page.
-        Ok(self.create_data_page()?)
+        self.create_data_page()
     }
 
     /// Find an unused page index.

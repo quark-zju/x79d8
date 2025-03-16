@@ -10,9 +10,8 @@ mod util;
 pub async fn main() {
     init();
     let opt = Opt::from_args();
-    match opt.run().await {
-        Err(e) => eprintln!("Error: {} ({:?})", &e, &e),
-        Ok(_) => {}
+    if let Err(e) = opt.run().await {
+        eprintln!("Error: {} ({:?})", &e, &e)
     }
 }
 

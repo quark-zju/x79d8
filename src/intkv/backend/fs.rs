@@ -71,9 +71,8 @@ impl FsIntKv {
 
 impl IntKv for FsIntKv {
     fn read(&self, index: usize) -> io::Result<Bytes> {
-        match self.overlay.get(&index) {
-            Some(State::Removed) => return Err(io::ErrorKind::NotFound.into()),
-            _ => {}
+        if let Some(State::Removed) = self.overlay.get(&index) {
+            return Err(io::ErrorKind::NotFound.into());
         }
         let path = self.get_path_for_index(index);
         let file = fs::OpenOptions::new().read(true).open(path)?;

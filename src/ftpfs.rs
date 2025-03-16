@@ -70,9 +70,8 @@ impl IntKvFtpFs {
 
 fn maybe_flush(kv: &Arc<RwLock<Box<dyn IntKv>>>) {
     log::info!("Writing changes to disk");
-    match kv.write().flush() {
-        Err(e) => log::error!("Cannot flush: {:?}", e),
-        Ok(_) => {}
+    if let Err(e) = kv.write().flush() {
+        log::error!("Cannot flush: {:?}", e)
     }
 }
 
@@ -403,7 +402,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
         if to_tree.has(to_name) {
             denied!("rename: destination {} exists", to.display());
         }
-        let from_item = from_tree.find(&from_name)?;
+        let from_item = from_tree.find(from_name)?;
         to_tree.items.insert(to_name.to_string(), from_item.clone());
         if to_tree.index == from_tree.index {
             to_tree.items.remove(from_name);
