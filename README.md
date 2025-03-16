@@ -19,10 +19,6 @@ served via a local FTP service.
 cargo install x79d8
 ```
 
-Note: Follow instructions from [the aesni crate](https://docs.rs/aesni) to
-enable hardware acceleration. In short, you might need to set `RUSTFLAGS`
-to `-C target-feature=+aes` during installation.
-
 ## Usage
 
 Initialize x79d8 configs in an empty directory:
@@ -91,7 +87,7 @@ a lot.
 x79d8 is only about 2k lines. The main encryption logic (`enc.rs`) is only
 about 160 lines.
 
-----
+---
 
 # x79d8
 
