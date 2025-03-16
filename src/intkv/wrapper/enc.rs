@@ -1,8 +1,8 @@
 use super::super::{Bytes, IntKv};
+use aes::cipher::AsyncStreamCipher as _;
+use aes::cipher::KeyIvInit as _;
 use aes::Aes256;
 use blake2::{Blake2s256 as Blake2s, Digest};
-use cfb_mode::cipher::{NewStreamCipher, StreamCipher};
-use cfb_mode::Cfb;
 use rand::RngCore;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -11,7 +11,9 @@ use std::io;
 
 type Bits256 = [u8; 32];
 type Bits128 = [u8; 16];
-type AesCfb = Cfb<Aes256>;
+
+type AesCfbEnc = cfb_mode::Encryptor<Aes256>;
+type AesCfbDec = cfb_mode::Decryptor<Aes256>;
 
 pub const IV_HEADER_SIZE: usize = 16;
 
@@ -68,9 +70,14 @@ impl EncIntKv {
         b.finalize().as_slice()[0..16].try_into().unwrap()
     }
 
-    fn cipher(&self, index: usize, count: Count) -> AesCfb {
+    fn cipher_enc(&self, index: usize, count: Count) -> AesCfbEnc {
         let iv = self.iv(index, count);
-        AesCfb::new(&self.key.into(), &iv.into())
+        AesCfbEnc::new(&self.key.into(), &iv.into())
+    }
+
+    fn cipher_dec(&self, index: usize, count: Count) -> AesCfbDec {
+        let iv = self.iv(index, count);
+        AesCfbDec::new(&self.key.into(), &iv.into())
     }
 }
 
@@ -78,7 +85,7 @@ impl IntKv for EncIntKv {
     fn read(&self, index: usize) -> io::Result<Bytes> {
         let data = self.kv.read(index)?;
         let count = Count::read_from(&data)?;
-        let mut cipher = self.cipher(index, count);
+        let cipher = self.cipher_dec(index, count);
         let mut data = data[IV_HEADER_SIZE..].to_vec();
         log::info!("Decrypt {} ({} bytes)", index, data.len());
         cipher.decrypt(&mut data);
@@ -96,7 +103,7 @@ impl IntKv for EncIntKv {
         let mut new_data = Vec::with_capacity(data.len() + IV_HEADER_SIZE);
         new_data.extend_from_slice(&count.to_bytes());
         new_data.extend_from_slice(&data);
-        let mut cipher = self.cipher(index, count);
+        let cipher = self.cipher_enc(index, count);
         log::info!("Encrypt {} ({} bytes)", index, data.len());
         cipher.encrypt(&mut new_data[IV_HEADER_SIZE..]);
         log::debug!("Encrypt {} complete", index);
