@@ -54,7 +54,7 @@ const fn default_cache_size_limit() -> usize {
 }
 
 const fn default_scrypt_log_n() -> u8 {
-    15
+    17
 }
 
 const fn default_scrypt_r() -> u32 {
@@ -63,6 +63,10 @@ const fn default_scrypt_r() -> u32 {
 
 const fn default_scrypt_p() -> u32 {
     1
+}
+
+const fn default_scrypt_len() -> usize {
+    32
 }
 
 const fn default_block_size_kb() -> u16 {
@@ -80,6 +84,8 @@ struct Config {
     pub scrypt_r: u32,
     #[serde(default = "default_scrypt_p")]
     pub scrypt_p: u32,
+    #[serde(default = "default_scrypt_len")]
+    pub scrypt_len: usize,
     #[serde(default = "default_cache_size_limit")]
     pub cache_size_limit: usize,
 }
@@ -120,6 +126,7 @@ fn init_cmd(dir: &Path, block_size_kb: u16, encrypted: bool, scrypt_log_n: u8) -
             scrypt_log_n,
             scrypt_r: default_scrypt_r(),
             scrypt_p: default_scrypt_p(),
+            scrypt_len: default_scrypt_len(),
             block_size_kb,
             cache_size_limit: default_cache_size_limit(),
         }
@@ -212,7 +219,13 @@ fn kv_from_dir_config(dir: &Path, config: &Config) -> io::Result<Box<dyn IntKv>>
 
 /// Derive key from password.
 fn password_derive(password: &str, config: &Config) -> [u8; 32] {
-    let params = ScryptParams::recommended();
+    let params = ScryptParams::new(
+        config.scrypt_log_n,
+        config.scrypt_r,
+        config.scrypt_p,
+        config.scrypt_len,
+    )
+    .expect("invalid scrypt params");
     let salt = hex::decode(&config.salt_hex).unwrap();
     let mut output = [0u8; 32];
     scrypt::scrypt(password.as_bytes(), &salt, &params, &mut output).unwrap();
