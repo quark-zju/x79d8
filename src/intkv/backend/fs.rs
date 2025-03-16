@@ -53,10 +53,7 @@ impl FsIntKv {
     }
 
     fn get_path_for_index(&self, index: usize) -> PathBuf {
-        let in_wal = match self.overlay.get(&index) {
-            Some(State::Modified) => true,
-            _ => false,
-        };
+        let in_wal = matches!(self.overlay.get(&index), Some(State::Modified));
         self.get_path_for_index_wal(index, in_wal)
     }
 

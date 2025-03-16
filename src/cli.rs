@@ -155,7 +155,7 @@ async fn serve_cmd(dir: &Path, address: &str) -> io::Result<()> {
 }
 
 async fn flush_on_ctrl_c(mut fs: IntKvFtpFs) {
-    while let Ok(_) = tokio::signal::ctrl_c().await {
+    while tokio::signal::ctrl_c().await.is_ok() {
         eprintln!("Writing changes on Ctrl+C...");
         match fs.flush() {
             Ok(_) => {

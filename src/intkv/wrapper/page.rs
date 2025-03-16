@@ -12,11 +12,14 @@ use std::io;
 /// written.
 ///
 /// There are 2 kinds of fixed sized pages: meta, and data.
+///
 /// A meta page consists of:
 /// - logical index -> physical data page index mapping
 /// - physical data page -> logical
+///
 /// A data page consists of:
 /// - logical index -> (data chunk, Option<next page index>)
+///
 /// To reconstruct data, first lookup from the meta page,
 /// then follow the linked list in data pages and concat
 /// all data chunks.
@@ -208,9 +211,11 @@ impl PageIntKv {
     }
 
     fn create_data_page(&mut self) -> io::Result<DataPage> {
-        let index = self.find_free_page_index()?;
-        let mut page = DataPage::default();
-        page.page_index = index;
+        let page_index = self.find_free_page_index()?;
+        let page = DataPage {
+            page_index,
+            ..Default::default()
+        };
         self.write_data_page(page.clone());
         Ok(page)
     }
@@ -317,14 +322,9 @@ impl PageIntKv {
         if data.is_none() {
             self.map_index.remove(&(index as _));
         }
-        loop {
-            match self.update_chunk(data_page, index as _, data)? {
-                Some((next_page, next_data)) => {
-                    data_page = next_page;
-                    data = next_data;
-                }
-                None => break,
-            }
+        while let Some((next_page, next_data)) = self.update_chunk(data_page, index as _, data)? {
+            data_page = next_page;
+            data = next_data;
         }
         Ok(())
     }
@@ -521,8 +521,8 @@ impl IntKv for PageIntKv {
             let mut iter = free_indexes.into_iter();
             move || iter.next().unwrap()
         };
-        for i in 1..new_meta_pages.len() {
-            new_meta_pages[i].page_index = match self.meta_pages.get(i) {
+        for (i, new_meta_page) in new_meta_pages.iter_mut().enumerate().skip(1) {
+            new_meta_page.page_index = match self.meta_pages.get(i) {
                 None => {
                     let id = next_free_index();
                     if self.has(id as _)? {
@@ -569,6 +569,7 @@ impl IntKv for PageIntKv {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn load_metadata(kv: &dyn IntKv) -> io::Result<(Vec<u64>, BTreeMap<u64, u64>, BTreeMap<u64, u64>)> {
     let mut meta_pages: Vec<u64> = Default::default();
     let mut map_index: BTreeMap<u64, u64> = Default::default();

@@ -134,8 +134,10 @@ trait IntKvFsExt: IntKv {
 
     fn create_tree(&mut self) -> Result<Tree> {
         let kv = self;
-        let mut tree = Tree::default();
-        tree.index = kv.find_free_index()? as _;
+        let tree = Tree {
+            index: kv.find_free_index()? as _,
+            ..Tree::default()
+        };
         kv.write_tree(&tree)?;
         Ok(tree)
     }
