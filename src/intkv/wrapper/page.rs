@@ -514,7 +514,6 @@ impl IntKv for PageIntKv {
 
             if n + m == 0 && to_insert > 0 {
                 // Need a new page.
-                drop(page);
                 new_meta_pages.push(MetaPage::default());
             }
         }
