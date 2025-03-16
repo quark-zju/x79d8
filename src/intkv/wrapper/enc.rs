@@ -1,6 +1,6 @@
 use super::super::{Bytes, IntKv};
 use aes::Aes256;
-use blake2::{Blake2s, Digest};
+use blake2::{Blake2s256 as Blake2s, Digest};
 use cfb_mode::cipher::{NewStreamCipher, StreamCipher};
 use cfb_mode::Cfb;
 use rand::RngCore;
