@@ -16,7 +16,13 @@ pub async fn main() {
 }
 
 fn init() {
-    env_logger::Builder::from_env("X79D8_LOG")
+    let env = std::env::var("X79D8_LOG");
+    let filter_str = match env.as_ref() {
+        Ok(s) => s.as_str(),
+        Err(_) => "x79d8=info",
+    };
+    env_logger::Builder::new()
+        .parse_filters(filter_str)
         .format_timestamp_millis()
         .init();
 }
