@@ -26,7 +26,7 @@ minibytes = { package = "sapling-minibytes", version = "0.1", features = ["fromm
 parking_lot = "0.12"
 rand = "0.9"
 rand_chacha = "0.9"
-rpassword = "5"
+rpassword = "7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 scrypt = "0.11"

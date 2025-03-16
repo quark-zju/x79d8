@@ -194,7 +194,7 @@ fn kv_from_dir_config(dir: &Path, config: &Config) -> io::Result<Box<dyn IntKv>>
         log::info!("Encryption is disabled");
     } else {
         let prompt = "Password: ";
-        let pass = rpassword::read_password_from_tty(Some(prompt)).unwrap();
+        let pass = rpassword::prompt_password(prompt).unwrap();
         let key = password_derive(&pass, config);
         // Use password encryption.
         kv = Box::new(EncIntKv::from_key_kv(key, kv));
