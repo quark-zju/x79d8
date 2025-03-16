@@ -254,6 +254,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
         path: P,
     ) -> Result<Self::Metadata> {
         let path = path.as_ref();
+        log::info!("metadata {}", path.display());
         let kv = self.kv.read();
         kv.read_id_meta_by_path(path).map(|(_i, m)| m)
     }
@@ -270,6 +271,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
         let kv = self.kv.read();
         let path = path.as_ref();
         let tree = kv.read_tree_by_path(path)?;
+        log::info!("list {} ({} items)", path.display(), tree.items.len());
         let files = tree
             .items
             .iter()
@@ -293,6 +295,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     ) -> Result<Box<dyn tokio::io::AsyncRead + Send + Sync + Unpin>> {
         let path = path.as_ref();
         let blob = self.kv.read().read_blob_by_path(path)?;
+        log::info!("get {} ({} bytes)", path.display(), blob.len());
         if blob.len() as u64 <= start_pos {
             static EMPTY: &[u8] = b"";
             Ok(Box::new(EMPTY))
@@ -314,6 +317,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
         start_pos: u64,
     ) -> Result<u64> {
         let path = path.as_ref();
+
         let mut buf = Vec::new();
         if start_pos > 0 {
             // Read existing parts.
@@ -331,6 +335,8 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
         }
 
         input.read_to_end(&mut buf).await?;
+        log::info!("put {} ({} bytes)", path.display(), buf.len());
+
         let written = (buf.len() as u64) - start_pos;
         let data: Bytes = buf.into();
         let mut kv = self.kv.write();
@@ -358,6 +364,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     /// Deletes the file at the given path.
     async fn del<P: AsRef<Path> + Send + Debug>(&self, _user: &Option<U>, path: P) -> Result<()> {
         let path = path.as_ref();
+        log::info!("del {}", path.display());
         let mut kv = self.kv.write();
         let (mut tree, name) = kv.read_tree_name_from_path(path)?;
         let (id, meta) = tree.find(name)?;
@@ -376,6 +383,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     /// Creates the given directory.
     async fn mkd<P: AsRef<Path> + Send + Debug>(&self, _user: &Option<U>, path: P) -> Result<()> {
         let path = path.as_ref();
+        log::info!("mkd {}", path.display());
         let mut kv = self.kv.write();
         let (mut tree, name) = kv.read_tree_name_from_path(path.as_ref())?;
         if tree.has(name) {
@@ -398,8 +406,10 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     ) -> Result<()> {
         // TODO: Detect cycles.
         let to = to.as_ref();
+        let from = from.as_ref();
+        log::info!("rename {} -> {}", from.display(), to.display());
         let mut kv = self.kv.write();
-        let (mut from_tree, from_name) = kv.read_tree_name_from_path(from.as_ref())?;
+        let (mut from_tree, from_name) = kv.read_tree_name_from_path(from)?;
         let (mut to_tree, to_name) = kv.read_tree_name_from_path(to)?;
         if to_tree.has(to_name) {
             denied!("rename: destination {} exists", to.display());
@@ -421,6 +431,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     /// Deletes the given directory.
     async fn rmd<P: AsRef<Path> + Send + Debug>(&self, _user: &Option<U>, path: P) -> Result<()> {
         let path = path.as_ref();
+        log::info!("rmd {}", path.display());
         let mut kv = self.kv.write();
         let (mut tree, name) = kv.read_tree_name_from_path(path)?;
         let (index, meta) = tree.find(name)?;
@@ -441,6 +452,7 @@ impl<U: Send + Sync + Debug> StorageBackend<U> for IntKvFtpFs {
     /// Changes the working directory to the given path.
     async fn cwd<P: AsRef<Path> + Send + Debug>(&self, _user: &Option<U>, path: P) -> Result<()> {
         let path = path.as_ref();
+        log::info!("cwd {}", path.display());
         let kv = self.kv.read();
         kv.read_tree_by_path(path)?;
         Ok(())
