@@ -109,8 +109,6 @@ about 160 lines.
 cargo install x79d8
 ```
 
-注意：默认使用软件加密，对大文件会比较慢。若要使用 CPU 加密指令加速加密，请查看 [aesni](https://docs.rs/aesni) 文档。
-
 ## 使用方法
 
 在空文件夹中执行以下命令进行初始化：
